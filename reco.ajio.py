@@ -46,8 +46,6 @@ if gst_file and rtv_file and payment_file:
 
             # --- Step 1: Process GST Report ---
             st.write("Processing GST Report...")
-            
-            # --- *** CHANGE HERE: Using 'Invoice Value' instead of 'Total Price' *** ---
             gst_summary = df_gst.groupby('Cust Order No').agg(
                 Total_Shipped_QTY=('Shipped QTY', 'sum'),
                 Total_Sales_Value=('Invoice Value', 'sum') 
@@ -62,9 +60,18 @@ if gst_file and rtv_file and payment_file:
 
             # --- Step 3: Process Payment Report ---
             st.write("Processing Payment Report...")
+            
+            # --- This is for the main reconciliation (per order) ---
             payment_summary = df_payment.groupby('Order No').agg(
                 Net_Payment_Received=('Value', 'sum')
             ).reset_index().rename(columns={'Order No': 'Order ID'})
+
+            # --- *** NEW: Calculate summary by Status *** ---
+            st.write("Calculating payment status summary...")
+            status_summary = df_payment.groupby('Status').agg(
+                Total_Amount=('Value', 'sum')
+            ).reset_index()
+            # --- *** END OF NEW LOGIC *** ---
             
             st.warning("""
             **Important Note:** We have assumed that in the 'Payment Report':
@@ -74,22 +81,24 @@ if gst_file and rtv_file and payment_file:
 
             # --- Step 4: Merge all three datasets ---
             st.write("Merging all reports...")
-            # Use 'outer' merge to keep all records from GST and RTV
             df_recon = pd.merge(gst_summary, rtv_summary, on='Order ID', how='outer')
-            # Use 'outer' merge again to include all payment records
             df_recon = pd.merge(df_recon, payment_summary, on='Order ID', how='outer')
 
             # --- Step 5: Calculations and Cleanup ---
-            # Fill 0 for orders not found in other reports
             df_recon = df_recon.fillna(0)
-
-            # (My Addition) - The actual reconciliation
             df_recon['Expected_Net_Payment'] = df_recon['Total_Sales_Value'] - df_recon['Total_Return_Value']
             df_recon['Difference'] = df_recon['Net_Payment_Received'] - df_recon['Expected_Net_Payment']
 
             # --- Step 6: Display the Final Report ---
             st.header("📊 Reconciliation Summary")
             
+            # --- *** NEW: Display the Status Summary Table *** ---
+            st.subheader("Payment Status Summary")
+            st.dataframe(status_summary)
+            st.divider()
+            # --- *** END OF NEW DISPLAY *** ---
+
+            st.subheader("Overall Financial Summary") # Added subheader
             total_sales = df_recon['Total_Sales_Value'].sum()
             total_returns = df_recon['Total_Return_Value'].sum()
             expected_total = df_recon['Expected_Net_Payment'].sum()
@@ -99,7 +108,7 @@ if gst_file and rtv_file and payment_file:
             sum_col1, sum_col2, sum_col3 = st.columns(3)
             sum_col1.metric("1. Total Sales (from GST Report)", f"₹ {total_sales:,.2f}")
             sum_col2.metric("2. Total Returns (from RTV Report)", f"₹ {total_returns:,.2f}")
-            sum_col3.metric("3. Total Payment Received (from Payment Report)", f"₹ {total_received:,.2f}")
+            sum_col3.metric("3. Total Net Payment Received", f"₹ {total_received:,.2f}")
             
             st.divider()
 
@@ -118,7 +127,7 @@ if gst_file and rtv_file and payment_file:
         except Exception as e:
             st.error(f"An error occurred: {e}")
             st.error("Please double-check your file column names (Headers).")
-            # --- *** CHANGE HERE: Updated error message *** ---
             st.error("GST report must contain 'Cust Order No', 'Shipped QTY', and 'Invoice Value'.")
             st.error("RTV report must contain 'Cust Order No', 'Return QTY', and 'Return Value'.")
-            st.error("Payment report must contain 'Order No' and 'Value'.")
+            # --- *** CHANGE: Updated error message *** ---
+            st.error("Payment report must contain 'Order No', 'Value', and 'Status'.")
