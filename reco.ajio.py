@@ -5,110 +5,111 @@ import io
 
 def process_data(df):
     """
-    यहां आप अपना सारा डेटा प्रोसेसिंग लॉजिक डाल सकते हैं।
-    अभी के लिए, हम सिर्फ डुप्लिकेट पंक्तियों (rows) को हटा रहे हैं।
+    You can put all your data processing logic here.
+    For now, we are just dropping duplicate rows.
     """
-    # डुप्लिकेट पंक्तियों को हटाएं
+    # Remove duplicate rows
     df_processed = df.drop_duplicates()
     
-    # आप यहां और भी सफाई कर सकते हैं, जैसे:
-    # df_processed = df_processed.dropna() # खाली पंक्तियां हटाना
+    # You can add more cleaning steps here, for example:
+    # df_processed = df_processed.dropna() # Remove rows with empty values
     
     return df_processed
 
 def get_csv_download_link(df, filename="processed_data.csv"):
     """
-    प्रोसेस किए गए DataFrame को CSV डाउनलोड लिंक में बदलने का फ़ंक्शन।
+    Function to convert the processed DataFrame into a CSV download link.
     """
-    # DataFrame को CSV में बदलें
+    # Convert DataFrame to CSV
     csv = df.to_csv(index=False)
     
-    # CSV डेटा को एन्कोड करें
+    # Encode the CSV data
     b64 = base64.b64encode(csv.encode()).decode()
     
-    # डाउनलोड लिंक HTML
-    href = f'<a href="data:file/csv;base64,{b64}" download="{filename}">Processed Data डाउनलोड करने के लिए यहां क्लिक करें (.csv)</a>'
+    # HTML for the download link
+    href = f'<a href="data:file/csv;base64,{b64}" download="{filename}">Click here to download processed data (.csv)</a>'
     return href
 
 def get_txt_download_link(df, filename="processed_data.txt"):
     """
-    प्रोसेस किए गए DataFrame को TXT डाउनलोड लिंक में बदलने का फ़ंक्शन।
+    Function to convert the processed DataFrame into a TXT download link.
     """
-    # DataFrame को टैब-सेपरेटेड टेक्स्ट में बदलें
-    # आप अपनी ज़रूरत के हिसाब से सेपरेटर (sep) बदल सकते हैं
+    # Convert DataFrame to tab-separated text
+    # You can change the separator (sep) if needed
     txt = df.to_csv(index=False, sep='\t')
     
-    # डेटा को एन्कोड करें
+    # Encode the data
     b64 = base64.b64encode(txt.encode()).decode()
     
-    # डाउनलोड लिंक HTML
-    href = f'<a href="data:file/text;base64,{b64}" download="{filename}">Processed Data डाउनलोड करने के लिए यहां क्लिक करें (.txt)</a>'
+    # HTML for the download link
+    href = f'<a href="data:file/text;base64,{b64}" download="{filename}">Click here to download processed data (.txt)</a>'
     return href
 
-# --- Streamlit ऐप ---
+# --- Streamlit App ---
 
-st.title("📄 डुप्लिकेट डेटा रिमूवर टूल")
-st.write("एक CSV या TXT फ़ाइल अपलोड करें, यह टूल डुप्लिकेट पंक्तियों को हटा देगा और आपको साफ़ फ़ाइल डाउनलोड करने देगा।")
+st.title("📄 Duplicate Data Remover Tool")
+st.write("Upload a CSV or TXT file, this tool will remove duplicate rows and let you download the cleaned file.")
 
-# 1. फ़ाइल अपलोडर
-uploaded_file = st.file_uploader("अपनी CSV या TXT फ़ाइल चुनें", type=["csv", "txt"])
+# 1. File Uploader
+# This checks the 'type' parameter to ensure only csv or txt files can be uploaded
+uploaded_file = st.file_uploader("Choose your CSV or TXT file", type=["csv", "txt"])
 
 if uploaded_file is not None:
     try:
-        # फ़ाइल के प्रकार का पता लगाएं
+        # Check the file extension
         file_extension = uploaded_file.name.split('.')[-1].lower()
         
-        # फ़ाइल पढ़ें
+        # Read the file based on its extension
         if file_extension == 'csv':
-            # यह मानकर चल रहे हैं कि फ़ाइल कॉमा (,) सेपरेटेड है
+            # Assuming the file is comma-separated
             df = pd.read_csv(uploaded_file)
         elif file_extension == 'txt':
-            # यह मानकर चल रहे हैं कि फ़ाइल टैब (\t) सेपरेटेड है
-            # अगर सेपरेटर कुछ और है, तो इसे यहां बदलें (जैसे sep=';')
+            # Assuming the file is tab-separated
+            # Change the separator (sep='\t') if your file uses something else (e.g., sep=';')
             df = pd.read_csv(uploaded_file, sep='\t')
 
-        st.success("फ़ाइल सफलतापूर्वक अपलोड हो गई!")
+        st.success("File uploaded successfully!")
         st.write("---")
 
-        # 2. डेटा प्रोसेस करें
-        st.header("1. डेटा प्रोसेसिंग")
-        if st.button("डुप्लिकेट पंक्तियां हटाएं"):
+        # 2. Process Data
+        st.header("1. Data Processing")
+        if st.button("Remove Duplicate Rows"):
             
             original_rows = len(df)
-            st.write(f"ओरिजिनल डेटा में पंक्तियां: **{original_rows}**")
+            st.write(f"Rows in original data: **{original_rows}**")
 
-            # प्रोसेसिंग फ़ंक्शन को कॉल करें
+            # Call the processing function
             df_cleaned = process_data(df)
             
             cleaned_rows = len(df_cleaned)
             removed_rows = original_rows - cleaned_rows
             
-            st.info(f"साफ़ किए गए डेटा में पंक्तियां: **{cleaned_rows}**")
-            st.warning(f"हटाई गई डुप्लिकेट पंक्तियां: **{removed_rows}**")
+            st.info(f"Rows in cleaned data: **{cleaned_rows}**")
+            st.warning(f"Duplicate rows removed: **{removed_rows}**")
             
             st.write("---")
 
-            # 3. डाउनलोड सेक्शन
-            st.header("2. साफ़ डेटा डाउनलोड करें")
+            # 3. Download Section
+            st.header("2. Download Cleaned Data")
             
-            # प्रीव्यू दिखाएं
-            st.subheader("साफ़ डेटा का प्रीव्यू (पहली 10 पंक्तियां)")
+            # Show a preview
+            st.subheader("Preview of cleaned data (first 10 rows)")
             st.dataframe(df_cleaned.head(10))
 
-            # डाउनलोड लिंक
-            st.subheader("डाउनलोड लिंक")
+            # Download links
+            st.subheader("Download Links")
             
-            # CSV लिंक
+            # CSV link
             csv_link = get_csv_download_link(df_cleaned, "cleaned_data.csv")
             st.markdown(csv_link, unsafe_allow_html=True)
             
-            # TXT लिंक
+            # TXT link
             txt_link = get_txt_download_link(df_cleaned, "cleaned_data.txt")
             st.markdown(txt_link, unsafe_allow_html=True)
             
-            # सेशन स्टेट में साफ़ डेटा सेव करें (ज़रूरी नहीं, लेकिन उपयोगी)
+            # Store cleaned data in session state (optional, but useful)
             st.session_state['cleaned_df'] = df_cleaned
 
     except Exception as e:
-        st.error(f"फ़ाइल पढ़ने में गड़बड़ी हुई: {e}")
-        st.error("कृपया सुनिश्चित करें कि फ़ाइल सही फॉर्मेट (CSV या TXT) में है।")
+        st.error(f"An error occurred while reading the file: {e}")
+        st.error("Please ensure the file is in the correct format (CSV or TXT) and not corrupted.")
