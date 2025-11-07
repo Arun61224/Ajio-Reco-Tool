@@ -46,9 +46,11 @@ if gst_file and rtv_file and payment_file:
 
             # --- Step 1: Process GST Report ---
             st.write("Processing GST Report...")
+            
+            # --- *** CHANGE HERE: Using 'Invoice Value' instead of 'Total Price' *** ---
             gst_summary = df_gst.groupby('Cust Order No').agg(
                 Total_Shipped_QTY=('Shipped QTY', 'sum'),
-                Total_Sales_Value=('Total Price', 'sum')
+                Total_Sales_Value=('Invoice Value', 'sum') 
             ).reset_index().rename(columns={'Cust Order No': 'Order ID'})
 
             # --- Step 2: Process RTV Report ---
@@ -72,23 +74,17 @@ if gst_file and rtv_file and payment_file:
 
             # --- Step 4: Merge all three datasets ---
             st.write("Merging all reports...")
-            
-            # --- CHANGE 1: Use 'outer' merge to keep all records from GST and RTV ---
+            # Use 'outer' merge to keep all records from GST and RTV
             df_recon = pd.merge(gst_summary, rtv_summary, on='Order ID', how='outer')
-            
-            # --- CHANGE 2: Use 'outer' merge again to include all payment records ---
+            # Use 'outer' merge again to include all payment records
             df_recon = pd.merge(df_recon, payment_summary, on='Order ID', how='outer')
 
             # --- Step 5: Calculations and Cleanup ---
             # Fill 0 for orders not found in other reports
-            # This is now even more important because of the 'outer' merge
             df_recon = df_recon.fillna(0)
 
             # (My Addition) - The actual reconciliation
-            # How much you should have received = (Total Sales - Total Returns)
             df_recon['Expected_Net_Payment'] = df_recon['Total_Sales_Value'] - df_recon['Total_Return_Value']
-            
-            # Difference = (Amount Received - Amount Expected)
             df_recon['Difference'] = df_recon['Net_Payment_Received'] - df_recon['Expected_Net_Payment']
 
             # --- Step 6: Display the Final Report ---
@@ -122,6 +118,7 @@ if gst_file and rtv_file and payment_file:
         except Exception as e:
             st.error(f"An error occurred: {e}")
             st.error("Please double-check your file column names (Headers).")
-            st.error("GST report must contain 'Cust Order No', 'Shipped QTY', and 'Total Price'.")
+            # --- *** CHANGE HERE: Updated error message *** ---
+            st.error("GST report must contain 'Cust Order No', 'Shipped QTY', and 'Invoice Value'.")
             st.error("RTV report must contain 'Cust Order No', 'Return QTY', and 'Return Value'.")
             st.error("Payment report must contain 'Order No' and 'Value'.")
