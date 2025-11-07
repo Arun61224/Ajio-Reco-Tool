@@ -14,9 +14,9 @@ def get_csv_download_link(df, filename="reconciliation_report.csv"):
     return href
 
 # --- Main App ---
-st.set_page_config(layout="wide") # To make the page wide
+st.set_page_config(layout="wide") 
 st.title("🛍️ Ajio Seller Reconciliation Tool")
-st.write("Upload your three reports (GST, RTV, Payment) and this tool will reconcile them.")
+st.write("Upload your three reports (GST, RTV, Payment). This tool will find all records and reconcile them.")
 
 # --- 1. File Uploaders ---
 st.header("1. Upload Your Reports")
@@ -45,7 +45,6 @@ if gst_file and rtv_file and payment_file:
             st.success("All three files loaded successfully!")
 
             # --- Step 1: Process GST Report ---
-            # Group by 'Cust Order No' and sum 'Shipped QTY' and 'Total Price'
             st.write("Processing GST Report...")
             gst_summary = df_gst.groupby('Cust Order No').agg(
                 Total_Shipped_QTY=('Shipped QTY', 'sum'),
@@ -53,16 +52,13 @@ if gst_file and rtv_file and payment_file:
             ).reset_index().rename(columns={'Cust Order No': 'Order ID'})
 
             # --- Step 2: Process RTV Report ---
-            # Group by 'Cust Order No' and sum 'Return QTY' and 'Return Value'
             st.write("Processing RTV Report...")
             rtv_summary = df_rtv.groupby('Cust Order No').agg(
                 Total_Return_QTY=('Return QTY', 'sum'),
                 Total_Return_Value=('Return Value', 'sum')
             ).reset_index().rename(columns={'Cust Order No': 'Order ID'})
 
-            # --- Step 3: Process Payment Report (Most Important) ---
-            # We are assuming the 'Payment' report has an 'Order No' column
-            # and the 'Value' column has a positive (+) amount for sales and a negative (-) amount for returns.
+            # --- Step 3: Process Payment Report ---
             st.write("Processing Payment Report...")
             payment_summary = df_payment.groupby('Order No').agg(
                 Net_Payment_Received=('Value', 'sum')
@@ -76,13 +72,16 @@ if gst_file and rtv_file and payment_file:
 
             # --- Step 4: Merge all three datasets ---
             st.write("Merging all reports...")
-            # Start with the GST summary (this is our master)
-            df_recon = pd.merge(gst_summary, rtv_summary, on='Order ID', how='left')
-            # Merge the payment summary
-            df_recon = pd.merge(df_recon, payment_summary, on='Order ID', how='left')
+            
+            # --- CHANGE 1: Use 'outer' merge to keep all records from GST and RTV ---
+            df_recon = pd.merge(gst_summary, rtv_summary, on='Order ID', how='outer')
+            
+            # --- CHANGE 2: Use 'outer' merge again to include all payment records ---
+            df_recon = pd.merge(df_recon, payment_summary, on='Order ID', how='outer')
 
             # --- Step 5: Calculations and Cleanup ---
-            # Fill 0 for orders not found in RTV or Payment
+            # Fill 0 for orders not found in other reports
+            # This is now even more important because of the 'outer' merge
             df_recon = df_recon.fillna(0)
 
             # (My Addition) - The actual reconciliation
@@ -95,7 +94,6 @@ if gst_file and rtv_file and payment_file:
             # --- Step 6: Display the Final Report ---
             st.header("📊 Reconciliation Summary")
             
-            # (My Addition) - Key metrics
             total_sales = df_recon['Total_Sales_Value'].sum()
             total_returns = df_recon['Total_Return_Value'].sum()
             expected_total = df_recon['Expected_Net_Payment'].sum()
@@ -115,6 +113,7 @@ if gst_file and rtv_file and payment_file:
                             help="This shows how much you were underpaid (negative) or overpaid (positive).")
 
             st.header("📄 Final Reconciliation Report")
+            st.info("This report now includes all Order IDs found in any of the three files.")
             st.dataframe(df_recon)
             
             # Download link
